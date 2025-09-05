@@ -117,7 +117,8 @@
   </main>
 
   <footer>
-    <a hidden="true" id="uploadBtn" class="help" href="#" target="_blank" rel="noopener" aria-disabled="true" title=""></a>
+    <button hidden="true" class="help" id="helpBtn" aria-haspopup="dialog">¿Cómo subir o reemplazar PDFs?</button>
+    <a hidden="true" id="uploadBtn" class="help" href="#" target="_blank" rel="noopener" aria-disabled="true" title="Pega tu URL en REPO_UPLOAD_URL para activar">📤 Subir/Reemplazar en GitHub</a>
   </footer>
 
   <!-- Modal de previsualización -->
@@ -140,9 +141,10 @@
        CONFIGURACIÓN
        ================================ */
 
-    // URL de subida de tu repo (activa el botón de subir):
-    // Ejemplo: "https://github.com/TU_USUARIO/TU_REPO/upload/main"
+    // URL de subida de tu repo (ACTIVADA para tu repo):
     const REPO_UPLOAD_URL = "https://github.com/LuaMipax/Control-de-Maquinas/upload/main";
+    // Base para subir por unidad (si usas /docs, añade '/docs' al final)
+    const UPLOAD_BASE = REPO_UPLOAD_URL;
 
     // Logos
     const SHOW_LEFT_LOGO  = true;
@@ -182,6 +184,15 @@
     }
 
     function absoluteUrl(path){ return new URL(path, location.href).toString(); }
+
+    // Normaliza "UNIDAD 1" -> "UNIDAD1" (para carpeta)
+    function safeDir(label){
+      return (label || 'UNIDAD')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // sin acentos
+        .replace(/\s+/g,'') // sin espacios
+        .replace(/[^A-Za-z0-9_-]/g,'') // seguro
+        .toUpperCase();
+    }
 
     /* ================================
        RENDER
@@ -230,6 +241,7 @@
     }
 
     function unitTemplate(unit){
+      const dir = unit.dir || safeDir(unit.label); // si en pdfs.json agregas "dir", se respeta
       const el = document.createElement("article");
       el.className = "unit";
       el.innerHTML = `
@@ -238,6 +250,9 @@
           <div class="sub" title="Hasta ${SLOTS_PER_UNIT} archivos por unidad">4 archivos</div>
         </div>
         <div class="slot-list"></div>
+        <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+          <a class="btn" href="${UPLOAD_BASE}/${dir}" target="_blank" rel="noopener">📤 Subir a ${dir}</a>
+        </div>
       `;
       const list = el.querySelector(".slot-list");
       (unit.files || []).slice(0, SLOTS_PER_UNIT).forEach(s => list.appendChild(slotTemplate(unit.label, s)));
@@ -252,6 +267,7 @@
           const json = await r.json();
           if (Array.isArray(json)) return json.map(u => ({
             label: u.label || "Unidad",
+            dir:   u.dir   || null,
             files: (u.files || []).slice(0, SLOTS_PER_UNIT).map((f, i)=>({
               label: f.label || `Archivo ${i+1}`,
               file:  f.file  || `UNIDAD-archivo-${i+1}.pdf`
@@ -272,16 +288,17 @@
       if (SHOW_LEFT_LOGO)  { const L = document.getElementById("logoLeft");  L.style.display="block";  L.querySelector("img").src = LOGO_SRC; }
       if (SHOW_RIGHT_LOGO) { const R = document.getElementById("logoRight"); R.style.display="block";  R.querySelector("img").src = LOGO_SRC; }
 
-      // Botón de subir
+      // Botón global de subir
       const up = document.getElementById("uploadBtn");
       if (REPO_UPLOAD_URL && /^https?:\/\//i.test(REPO_UPLOAD_URL)) {
         up.href = REPO_UPLOAD_URL;
         up.removeAttribute("aria-disabled");
         up.removeAttribute("title");
+        up.textContent = "📤 Subir/Reemplazar en GitHub";
       } else {
         up.addEventListener("click", e => {
           e.preventDefault();
-          alert("Para activar este botón, pega tu URL de subida de GitHub en REPO_UPLOAD_URL dentro del script.");
+          alert("Pega tu URL de subida de GitHub en REPO_UPLOAD_URL dentro del script.");
         });
       }
 
@@ -289,13 +306,14 @@
       const data = await loadUnits();
       data.forEach(u => unitsEl.appendChild(unitTemplate(u)));
 
-      // Help dialog
+      // Help
       document.getElementById("helpBtn").addEventListener("click", ()=>{
-        alert(`Sube tus PDFs a tu repositorio (Code → Add file → Upload files).
-Estructura recomendada:
-- Por defecto: UNIDAD{n}-{slot}.pdf (p. ej., UNIDAD1-1.pdf)
-- O usa pdfs.json para personalizar nombres y títulos por unidad.`);
-      }); })();
+        alert(`Para subir:
+1) Usa el botón global "Subir/Reemplazar en GitHub" para la raíz, o el botón "📤 Subir a UNIDADX" en cada unidad.
+2) Sube PDFs con el mismo nombre para reemplazar.
+3) Si usas "pdfs.json", puedes personalizar títulos/archivos y (opcional) "dir" por unidad.`);
+      });
+    })();
 
     /* ================================
        PREVISUALIZACIÓN PDF
@@ -320,4 +338,3 @@ Estructura recomendada:
   </script>
 </body>
 </html>
-
