@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Control de Máquinas — Unidades</title>
+  <link rel="icon" href="logo.png" type="image/png">
+
+  <style>
+    :root{
+      --bg:#0b1020; --card:#111832; --muted:#9fb0d3; --text:#eaf0ff; --accent:#5b8cff; --ok:#20c997; --warn:#ffb020; --ring:#2a3663;
+    }
+    @media (prefers-color-scheme: light){
+      :root{ --bg:#f6f8ff; --card:#ffffff; --muted:#5a6b8a; --text:#0b1020; --accent:#2b57ff; --ok:#0aa370; --warn:#c97a00; --ring:#dfe6ff; }
+    }
+    *{box-sizing:border-box}
+    body{
+      margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, "Helvetica Neue", Arial;
+      color:var(--text); background: radial-gradient(1000px 500px at 10% -10%, #1b25564d 0, transparent 50%), var(--bg);
+      min-height:100dvh; display:flex; flex-direction:column;
+    }
+    header{
+      padding:28px 20px; position:sticky; top:0; z-index: 5;
+      backdrop-filter:saturate(160%) blur(8px);
+      background:linear-gradient(180deg, rgba(0,0,0,.25), transparent 60%);
+      border-bottom:1px solid #ffffff12;
+    }
+    .wrap{max-width:1100px; margin:0 auto; padding:0 12px}
+    h1{margin:0 0 6px 0; font-weight:800; letter-spacing:.2px}
+    .sub{color:var(--muted); font-size:14px}
+
+    .units{
+      display:grid; gap:18px; padding:22px 12px 38px;
+      grid-template-columns: repeat(1, minmax(0,1fr));
+    }
+    @media (min-width:900px){ .units{ grid-template-columns: repeat(2, minmax(0,1fr)); } }
+
+    .unit{
+      background:linear-gradient(180deg, #ffffff08, #00000000), var(--card);
+      border:1px solid #ffffff10; border-radius:18px; padding:16px;
+      box-shadow: 0 10px 30px #00000025, inset 0 1px 0 #ffffff0a;
+      transition: transform .15s ease, box-shadow .15s ease, border-color .2s ease;
+    }
+    .unit:hover{ transform: translateY(-2px); box-shadow: 0 16px 40px #00000035; border-color:#ffffff25; }
+    .unit-head{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-bottom:10px }
+    .unit-title{ font-weight:800; font-size:18px; }
+    .slot-list{ display:grid; gap:10px; margin-top:8px; }
+    .slot{
+      display:flex; gap:12px; align-items:center; border:1px solid #ffffff12; padding:10px; border-radius:12px;
+      background: #ffffff05;
+    }
+    .slot .badge{
+      min-width:38px; height:38px; border-radius:10px; display:grid; place-items:center; font-weight:800;
+      background:#ff4d4d22; border:1px solid #ff4d4d55;
+    }
+    .slot .meta{ flex:1; min-width:0 }
+    .slot .title{ font-weight:700; font-size:14px; line-height:1.25 }
+    .slot .name{ color:var(--muted); font-size:12px; word-break:break-all }
+    .slot .status{
+      display:inline-flex; align-items:center; gap:8px; padding:6px 10px; border-radius:999px; font-size:12px; border:1px solid #ffffff18;
+      background:#ffffff08; white-space:nowrap;
+    }
+    .dot{width:8px; height:8px; border-radius:999px}
+    .dot.ok{background:var(--ok)} .dot.warn{background:var(--warn)}
+    .slot .btns{ display:flex; gap:8px; }
+    .btn{
+      padding:8px 10px; border-radius:10px; border:1px solid var(--ring);
+      background:linear-gradient(180deg, #ffffff14, #00000000);
+      color:var(--text); font-weight:700; font-size:13px; cursor:pointer;
+      transition: transform .1s ease, border-color .2s ease, background .2s ease;
+    }
+    .btn:hover{ transform: translateY(-1px); border-color:#ffffff35; }
+    .btn.primary{ background: linear-gradient(180deg, var(--accent), #2446c7); border:0; }
+    .btn[disabled]{opacity:.55; cursor:not-allowed}
+
+    footer{
+      margin-top:auto; padding:20px 12px 36px; color:var(--muted); font-size:12px; text-align:center;
+    }
+    .help{
+      display:inline-flex; gap:8px; align-items:center; cursor:pointer; font-weight:700; color:var(--accent);
+      border:1px solid var(--ring); padding:8px 12px; border-radius:999px; background:#ffffff08;
+    }
+
+    /* Logos */
+    .logo { position: fixed; top:16px; z-index: 9; }
+    .logo img { max-height:60px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.2); }
+    .logo.left { left:16px; }
+    .logo.right{ right:16px; }
+
+    /* Modal preview */
+    dialog#preview{
+      width:min(1000px, 95vw); border:1px solid #ffffff22; border-radius:18px; padding:0; background:var(--card); color:var(--text);
+      box-shadow: 0 30px 80px #0008; max-height: 92vh;
+    }
+    .pv-head{ padding:12px 16px; border-bottom:1px solid #ffffff18; display:flex; align-items:center; justify-content:space-between; gap:10px }
+    .pv-title{ font-weight:800 }
+    .pv-body{ padding:0; }
+    .pv-actions{ padding:10px 16px; display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #ffffff18 }
+    iframe.pv-frame{ width:100%; height:75vh; border:0; background:#000; }
+  </style>
+</head>
+
+<body>
+  <header>
+    <div class="wrap">
+      <h1>Control de Máquinas</h1>
+      <div class="sub">José Armando Lua Alvarado — 22400063</div>
+    </div>
+  </header>
+
+  <!-- Logos (activa/desactiva con las constantes del script) -->
+  <div id="logoLeft"  class="logo left"  style="display:none;"><img src="logo.png" alt="Logo izquierdo"></div>
+  <div id="logoRight" class="logo right" style="display:none;"><img src="logo.png" alt="Logo derecho"></div>
+
+  <main class="wrap">
+    <section class="units" id="units"></section>
+  </main>
+
+  <footer>
+    <a hidden="true" id="uploadBtn" class="help" href="#" target="_blank" rel="noopener" aria-disabled="true" title=""></a>
+  </footer>
+
+  <!-- Modal de previsualización -->
+  <dialog id="preview">
+    <div class="pv-head">
+      <div class="pv-title" id="pvTitle">Previsualización</div>
+      <button class="btn" id="pvClose">Cerrar</button>
+    </div>
+    <div class="pv-body">
+      <iframe class="pv-frame" id="pvFrame" title="Previsualización PDF"></iframe>
+    </div>
+    <div class="pv-actions">
+      <a id="pvOpen" class="btn primary" href="#" target="_blank" rel="noopener">Abrir en nueva pestaña</a>
+      <button class="btn" id="pvCopy">Copiar enlace</button>
+    </div>
+  </dialog>
+
+  <script>
+    /* ================================
+       CONFIGURACIÓN
+       ================================ */
+
+    // URL de subida de tu repo (activa el botón de subir):
+    // Ejemplo: "https://github.com/TU_USUARIO/TU_REPO/upload/main"
+    const REPO_UPLOAD_URL = ""; // ← PEGA AQUÍ tu URL de subida
+
+    // Logos
+    const SHOW_LEFT_LOGO  = true;
+    const SHOW_RIGHT_LOGO = false;
+    const LOGO_SRC = "logo.png";
+
+    // Estructura por defecto: 4 unidades × 4 slots
+    const FALLBACK_UNITS = 4;
+    const SLOTS_PER_UNIT = 4;
+    // Nombres por defecto: UNIDAD{n}-{slot}.pdf
+    const fallbackSlot = (uIdx, sIdx) => ({
+      label: `Archivo ${sIdx + 1}`,
+      file: `UNIDAD${uIdx + 1}-${sIdx + 1}.pdf`
+    });
+
+    /* ================================
+       UTILIDADES
+       ================================ */
+    function toast(msg){
+      const t = document.createElement("div");
+      t.textContent = msg;
+      t.style.cssText = `
+        position: fixed; inset-inline: 0; bottom: 24px; margin: 0 auto; width: max-content;
+        background: #000a; color: #fff; padding: 10px 14px; border-radius: 999px;
+        font-weight:700; transform: translateY(20px); opacity:0; transition: all .2s ease; z-index: 9999;
+      `;
+      document.body.appendChild(t);
+      requestAnimationFrame(()=>{ t.style.transform="translateY(0)"; t.style.opacity="1"; });
+      setTimeout(()=>{ t.style.transform="translateY(10px)"; t.style.opacity="0"; setTimeout(()=>t.remove(),200); }, 1400);
+    }
+
+    async function headExists(url){
+      try{
+        const r = await fetch(url, { method:"HEAD", cache:"no-store" });
+        return r.ok;
+      }catch{return false;}
+    }
+
+    function absoluteUrl(path){ return new URL(path, location.href).toString(); }
+
+    /* ================================
+       RENDER
+       ================================ */
+    const unitsEl = document.getElementById("units");
+
+    function slotTemplate(unitName, slot){
+      const href = absoluteUrl(slot.file);
+      const el = document.createElement("div");
+      el.className = "slot";
+      el.innerHTML = `
+        <div class="badge">PDF</div>
+        <div class="meta">
+          <div class="title">${slot.label}</div>
+          <div class="name">${slot.file}</div>
+        </div>
+        <div class="status"><span class="dot warn"></span><span class="stxt">Comprobando...</span></div>
+        <div class="btns">
+          <a class="btn primary openBtn" href="${href}" target="_blank" rel="noopener">Abrir</a>
+          <button class="btn previewBtn" type="button">Previsualizar</button>
+          <button class="btn copyBtn" type="button">Copiar</button>
+        </div>
+      `;
+
+      // Estado
+      headExists(href).then(ok=>{
+        const st = el.querySelector(".status");
+        const dot = st.querySelector(".dot");
+        const txt = st.querySelector(".stxt");
+        if (ok) { dot.classList.replace("warn","ok"); txt.textContent = "Disponible"; }
+        else    { dot.classList.remove("ok");        txt.textContent = "Pendiente"; }
+      });
+
+      // Copiar
+      el.querySelector(".copyBtn").addEventListener("click", async ()=>{
+        try{ await navigator.clipboard.writeText(href); toast("Enlace copiado"); }
+        catch{ prompt("Copia manualmente:", href); }
+      });
+
+      // Previsualizar
+      el.querySelector(".previewBtn").addEventListener("click", ()=>{
+        openPreview(`${unitName} — ${slot.label}`, href);
+      });
+
+      return el;
+    }
+
+    function unitTemplate(unit){
+      const el = document.createElement("article");
+      el.className = "unit";
+      el.innerHTML = `
+        <div class="unit-head">
+          <div class="unit-title">${unit.label}</div>
+          <div class="sub" title="Hasta ${SLOTS_PER_UNIT} archivos por unidad">4 archivos</div>
+        </div>
+        <div class="slot-list"></div>
+      `;
+      const list = el.querySelector(".slot-list");
+      (unit.files || []).slice(0, SLOTS_PER_UNIT).forEach(s => list.appendChild(slotTemplate(unit.label, s)));
+      return el;
+    }
+
+    async function loadUnits(){
+      // 1) Intentar pdfs.json (estructura avanzada por unidad)
+      try{
+        const r = await fetch("pdfs.json", { cache:"no-store" });
+        if (r.ok){
+          const json = await r.json();
+          if (Array.isArray(json)) return json.map(u => ({
+            label: u.label || "Unidad",
+            files: (u.files || []).slice(0, SLOTS_PER_UNIT).map((f, i)=>({
+              label: f.label || `Archivo ${i+1}`,
+              file:  f.file  || `UNIDAD-archivo-${i+1}.pdf`
+            }))
+          }));
+        }
+      }catch{}
+
+      // 2) Fallback: generar 4 unidades × 4 slots (UNIDAD{n}-{slot}.pdf)
+      return Array.from({length: FALLBACK_UNITS}, (_, u) => ({
+        label: `UNIDAD ${u+1}`,
+        files: Array.from({length: SLOTS_PER_UNIT}, (_, s)=> fallbackSlot(u, s))
+      }));
+    }
+
+    (async ()=>{
+      // Logos
+      if (SHOW_LEFT_LOGO)  { const L = document.getElementById("logoLeft");  L.style.display="block";  L.querySelector("img").src = LOGO_SRC; }
+      if (SHOW_RIGHT_LOGO) { const R = document.getElementById("logoRight"); R.style.display="block";  R.querySelector("img").src = LOGO_SRC; }
+
+      // Botón de subir
+      const up = document.getElementById("uploadBtn");
+      if (REPO_UPLOAD_URL && /^https?:\/\//i.test(REPO_UPLOAD_URL)) {
+        up.href = REPO_UPLOAD_URL;
+        up.removeAttribute("aria-disabled");
+        up.removeAttribute("title");
+      } else {
+        up.addEventListener("click", e => {
+          e.preventDefault();
+          alert("Para activar este botón, pega tu URL de subida de GitHub en REPO_UPLOAD_URL dentro del script.");
+        });
+      }
+
+      // Render unidades
+      const data = await loadUnits();
+      data.forEach(u => unitsEl.appendChild(unitTemplate(u)));
+
+      // Help dialog
+      document.getElementById("helpBtn").addEventListener("click", ()=>{
+        alert(`Sube tus PDFs a tu repositorio (Code → Add file → Upload files).
+Estructura recomendada:
+- Por defecto: UNIDAD{n}-{slot}.pdf (p. ej., UNIDAD1-1.pdf)
+- O usa pdfs.json para personalizar nombres y títulos por unidad.`);
+      }); })();
+
+    /* ================================
+       PREVISUALIZACIÓN PDF
+       ================================ */
+    const dlg  = document.getElementById("preview");
+    const pvT  = document.getElementById("pvTitle");
+    const pvF  = document.getElementById("pvFrame");
+    const pvO  = document.getElementById("pvOpen");
+    const pvC  = document.getElementById("pvCopy");
+    document.getElementById("pvClose").addEventListener("click", ()=> dlg.close());
+
+    function openPreview(title, url){
+      pvT.textContent = title;
+      pvF.src = url;
+      pvO.href = url;
+      pvC.onclick = async ()=>{
+        try{ await navigator.clipboard.writeText(url); toast("Enlace copiado"); }
+        catch{ prompt("Copia manualmente:", url); }
+      };
+      dlg.showModal();
+    }
+  </script>
+</body>
+</html>
