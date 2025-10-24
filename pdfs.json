@@ -3,20 +3,20 @@
     "label": "UNIDAD 1",
     "dir": "UNIDAD1",
     "files": [
-      { "label": "Archivo 1", "file": "UNIDAD1/UNIDAD1-1.pdf" },
-      { "label": "Archivo 2", "file": "UNIDAD1/UNIDAD1-2.pdf" },
-      { "label": "Archivo 3", "file": "UNIDAD1/UNIDAD1-3.pdf" },
-      { "label": "Archivo 4", "file": "UNIDAD1/UNIDAD1-4.pdf" }
+      { "label": "PRACTICA", "file": "UNIDAD1/UNIDAD1-1.pdf" },
+      { "label": "PRACTICA", "file": "UNIDAD1/UNIDAD1-2.pdf" },
+      { "label": "PRACTICA", "file": "UNIDAD1/UNIDAD1-3.pdf" },
+      { "label": "PRACTICA", "file": "UNIDAD1/UNIDAD1-4.pdf" }
     ]
   },
   {
     "label": "UNIDAD 2",
     "dir": "UNIDAD2",
     "files": [
-      { "label": "Archivo 1", "file": "UNIDAD2/UNIDAD2-1.pdf" },
-      { "label": "Archivo 2", "file": "UNIDAD2/UNIDAD2-2.pdf" },
-      { "label": "Archivo 3", "file": "UNIDAD2/UNIDAD2-3.pdf" },
-      { "label": "Archivo 4", "file": "UNIDAD2/UNIDAD2-4.pdf" }
+      { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-1.mp4", "type": "video" },
+      { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-2.mp4", "type": "video" },
+      { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-3.pdf" },
+      { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-4.pdf" }
     ]
   },
   {
@@ -33,10 +33,10 @@
     "label": "UNIDAD 4",
     "dir": "UNIDAD4",
     "files": [
-      { "label": "Archivo 1", "file": "UNIDAD4/UNIDAD4-1.pdf" },
-      { "label": "Archivo 2", "file": "UNIDAD4/UNIDAD4-2.pdf" },
-      { "label": "Archivo 3", "file": "UNIDAD4/UNIDAD4-3.pdf" },
-      { "label": "Archivo 4", "file": "UNIDAD4/UNIDAD4-4.pdf" }
+      { "label": "PRACTICA", "file": "UNIDAD4/UNIDAD4-1.pdf" },
+      { "label": "PRACTICA", "file": "UNIDAD4/UNIDAD4-2.pdf" },
+      { "label": "PRACTICA", "file": "UNIDAD4/UNIDAD4-3.pdf" },
+      { "label": "PRACTICA", "file": "UNIDAD4/UNIDAD4-4.pdf" }
     ]
   }
 ]

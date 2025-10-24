@@ -2,6 +2,9 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Cache-Control" content="no-store, max-age=0, must-revalidate"/>
+  <meta http-equiv="Pragma" content="no-cache"/>
+  <meta http-equiv="Expires" content="0"/>
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Control de Máquinas — Unidades</title>
   <link rel="icon" href="logo.png" type="image/png">
@@ -53,6 +56,7 @@
       min-width:38px; height:38px; border-radius:10px; display:grid; place-items:center; font-weight:800;
       background:#ff4d4d22; border:1px solid #ff4d4d55;
     }
+    .slot .badge.video{ background:#2dd4bf22; border-color:#2dd4bf55; }
     .slot .meta{ flex:1; min-width:0 }
     .slot .title{ font-weight:700; font-size:14px; line-height:1.25 }
     .slot .name{ color:var(--muted); font-size:12px; word-break:break-all }
@@ -73,13 +77,11 @@
     .btn.primary{ background: linear-gradient(180deg, var(--accent), #2446c7); border:0; }
     .btn[disabled]{opacity:.55; cursor:not-allowed}
 
-    /* Logos */
     .logo { position: fixed; top:16px; z-index: 9; }
     .logo img { max-height:60px; border-radius:8px; box-shadow:0 2px 6px rgba(0,0,0,.2); }
     .logo.left { left:16px; }
     .logo.right{ right:16px; }
 
-    /* Modal preview */
     dialog#preview{
       width:min(1000px, 95vw); border:1px solid #ffffff22; border-radius:18px; padding:0; background:var(--card); color:var(--text);
       box-shadow: 0 30px 80px #0008; max-height: 92vh;
@@ -88,7 +90,8 @@
     .pv-title{ font-weight:800 }
     .pv-body{ padding:0; }
     .pv-actions{ padding:10px 16px; display:flex; justify-content:flex-end; gap:10px; border-top:1px solid #ffffff18 }
-    iframe.pv-frame{ width:100%; height:75vh; border:0; background:#000; }
+    iframe.pv-frame{ width:100%; height:75vh; border:0; background:#000; display:none; }
+    video.pv-video{ width:100%; height:auto; max-height:75vh; background:#000; display:none; }
   </style>
 </head>
 
@@ -100,7 +103,6 @@
     </div>
   </header>
 
-  <!-- Logos (activa/desactiva con las constantes del script) -->
   <div id="logoLeft"  class="logo left"  style="display:none;"><img src="logo.png" alt="Logo izquierdo"></div>
   <div id="logoRight" class="logo right" style="display:none;"><img src="logo.png" alt="Logo derecho"></div>
 
@@ -108,7 +110,6 @@
     <section class="units" id="units"></section>
   </main>
 
-  <!-- Modal de previsualización -->
   <dialog id="preview">
     <div class="pv-head">
       <div class="pv-title" id="pvTitle">Previsualización</div>
@@ -116,6 +117,7 @@
     </div>
     <div class="pv-body">
       <iframe class="pv-frame" id="pvFrame" title="Previsualización PDF"></iframe>
+      <video class="pv-video" id="pvVideo" controls playsinline></video>
     </div>
     <div class="pv-actions">
       <a id="pvOpen" class="btn primary" href="#" target="_blank" rel="noopener">Abrir en nueva pestaña</a>
@@ -125,29 +127,170 @@
 
   <script>
     /* ================================
-       CONFIGURACIÓN
+       CONFIG
        ================================ */
-
-    // Base para subir por unidad (usa tu repo/branch; si usas /docs, añade '/docs')
     const REPO_UPLOAD_URL = "https://github.com/LuaMipax/Control-de-Maquinas/upload/main";
     const UPLOAD_BASE = REPO_UPLOAD_URL;
 
-    // Logos
     const SHOW_LEFT_LOGO  = true;
     const SHOW_RIGHT_LOGO = false;
     const LOGO_SRC = "logo.png";
 
-    // Estructura por defecto: 4 unidades × 4 slots
-    const FALLBACK_UNITS = 4;
     const SLOTS_PER_UNIT = 4;
-    // Nombres por defecto: UNIDAD{n}-{slot}.pdf
-    const fallbackSlot = (uIdx, sIdx) => ({
-      label: `Archivo ${sIdx + 1}`,
-      file: `UNIDAD${uIdx + 1}-${sIdx + 1}.pdf`
-    });
+
+    // Extensiones soportadas
+    const VIDEO_EXT = ['.mp4', '.webm', '.ogg'];
+    const PDF_EXT   = ['.pdf'];
 
     /* ================================
-       UTILIDADES
+       ANTICACHE
+       ================================ */
+    function withNoCache(url) {
+      const u = new URL(url, location.href);
+      u.searchParams.set('v', Date.now().toString());
+      return u.toString();
+    }
+    async function headExists(url){
+      try{
+        const r = await fetch(withNoCache(url), { method:"HEAD", cache:"no-store" });
+        return r.ok;
+      }catch{return false;}
+    }
+    function absoluteUrl(path){ return new URL(path, location.href).toString(); }
+    function safeDir(label){
+      return (label || 'UNIDAD')
+        .normalize('NFD').replace(/[\u0300-\u036f]/g,'')
+        .replace(/\s+/g,'')
+        .replace(/[^A-Za-z0-9_-]/g,'')
+        .toUpperCase();
+    }
+    function isVideoExt(file){ return VIDEO_EXT.some(ext => file.toLowerCase().endsWith(ext)); }
+    function isPdfExt(file){ return PDF_EXT.some(ext => file.toLowerCase().endsWith(ext)); }
+
+    // Decide tipo a partir de `slot.type` o extensión
+    function getSlotType(slot){
+      const t = (slot.type || 'auto').toLowerCase();
+      if (t === 'pdf')   return 'pdf';
+      if (t === 'video') return 'video';
+      if (isVideoExt(slot.file)) return 'video';
+      if (isPdfExt(slot.file))   return 'pdf';
+      return 'pdf';
+    }
+
+    /* ================================
+       RENDER
+       ================================ */
+    const unitsEl = document.getElementById("units");
+
+    function slotTemplate(unitName, slot){
+      const rawHref = absoluteUrl(slot.file);
+      const href = withNoCache(rawHref);
+      const type = getSlotType(slot);
+      const isVideo = (type === 'video');
+
+      const el = document.createElement("div");
+      el.className = "slot";
+      el.innerHTML = `
+        <div class="badge ${isVideo ? 'video' : ''}">${isVideo ? 'VID' : 'PDF'}</div>
+        <div class="meta">
+          <div class="title">${slot.label}</div>
+          <div class="name">${slot.file}</div>
+        </div>
+        <div class="status"><span class="dot warn"></span><span class="stxt">Comprobando...</span></div>
+        <div class="btns">
+          <a class="btn primary openBtn" href="${href}" target="_blank" rel="noopener">Abrir</a>
+          <button class="btn previewBtn" type="button">Previsualizar</button>
+          <button class="btn copyBtn" type="button">Copiar</button>
+        </div>
+      `;
+
+      // Estado (HEAD sin caché)
+      headExists(rawHref).then(ok=>{
+        const st = el.querySelector(".status");
+        const dot = st.querySelector(".dot");
+        const txt = st.querySelector(".stxt");
+        if (ok) { dot.classList.replace("warn","ok"); txt.textContent = "Disponible"; }
+        else    { dot.classList.remove("ok");        txt.textContent = "Pendiente"; }
+      });
+
+      // Copiar
+      el.querySelector(".copyBtn").addEventListener("click", async ()=>{
+        const link = withNoCache(rawHref);
+        try{ await navigator.clipboard.writeText(link); toast("Enlace copiado"); }
+        catch{ prompt("Copia manualmente:", link); }
+      });
+
+      // Previsualizar
+      el.querySelector(".previewBtn").addEventListener("click", ()=>{
+        openPreview(`${unitName} — ${slot.label}`, rawHref, isVideo ? 'video' : 'pdf', slot.poster);
+      });
+
+      // Abrir (siempre con cache-buster actualizado)
+      el.querySelector(".openBtn").addEventListener("click", (e)=>{
+        e.currentTarget.href = withNoCache(rawHref);
+      });
+
+      return el;
+    }
+
+    function unitTemplate(unit){
+      const dir = unit.dir || safeDir(unit.label);
+      const el = document.createElement("article");
+      el.className = "unit";
+      el.innerHTML = `
+        <div class="unit-head">
+          <div class="unit-title">${unit.label}</div>
+          <div class="sub" title="Hasta ${SLOTS_PER_UNIT} archivos por unidad">${SLOTS_PER_UNIT} archivos</div>
+        </div>
+        <div class="slot-list"></div>
+        <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
+          <a class="btn" href="${UPLOAD_BASE}/${dir}" target="_blank" rel="noopener">📤 Subir a ${dir}</a>
+        </div>
+      `;
+      const list = el.querySelector(".slot-list");
+      (unit.files || []).slice(0, SLOTS_PER_UNIT).forEach(s => list.appendChild(slotTemplate(unit.label, s)));
+      return el;
+    }
+
+    async function loadUnits(){
+      // Lee pdfs.json (ahora puede incluir "type" y "poster")
+      try{
+        const r = await fetch(withNoCache("pdfs.json"), { cache:"no-store" });
+        if (r.ok){
+          const json = await r.json();
+          if (Array.isArray(json)) return json.map(u => ({
+            label: u.label || "Unidad",
+            dir:   u.dir   || null,
+            files: (u.files || []).map((f, i)=>({
+              label:  f.label  || `Archivo ${i+1}`,
+              file:   f.file,
+              type:   f.type   || 'auto',
+              poster: f.poster || null
+            }))
+          }));
+        }
+      }catch{}
+      // Fallback vacío si no hay json válido
+      return [];
+    }
+
+    (async ()=>{
+      // Service Worker para anticaché de PDFs/Videos
+      if ('serviceWorker' in navigator) {
+        try { await navigator.serviceWorker.register('sw-nocache.js', { scope: './' }); } catch {}
+      }
+
+      // Logos
+      if (SHOW_LEFT_LOGO)  { const L = document.getElementById("logoLeft");  L.style.display="block";  L.querySelector("img").src = LOGO_SRC; }
+      if (SHOW_RIGHT_LOGO) { const R = document.getElementById("logoRight"); R.style.display="block";  R.querySelector("img").src = LOGO_SRC; }
+
+      // Render
+      const data = await loadUnits();
+      data.forEach(u => unitsEl.appendChild(unitTemplate(u)));
+    })();
+
+    /* ================================
+       TOAST
        ================================ */
     function toast(msg){
       const t = document.createElement("div");
@@ -162,141 +305,45 @@
       setTimeout(()=>{ t.style.transform="translateY(10px)"; t.style.opacity="0"; setTimeout(()=>t.remove(),200); }, 1400);
     }
 
-    async function headExists(url){
-      try{
-        const r = await fetch(url, { method:"HEAD", cache:"no-store" });
-        return r.ok;
-      }catch{return false;}
-    }
-
-    function absoluteUrl(path){ return new URL(path, location.href).toString(); }
-
-    // Normaliza "UNIDAD 1" -> "UNIDAD1" (para carpeta)
-    function safeDir(label){
-      return (label || 'UNIDAD')
-        .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // sin acentos
-        .replace(/\s+/g,'') // sin espacios
-        .replace(/[^A-Za-z0-9_-]/g,'') // seguro
-        .toUpperCase();
-    }
-
     /* ================================
-       RENDER
-       ================================ */
-    const unitsEl = document.getElementById("units");
-
-    function slotTemplate(unitName, slot){
-      const href = absoluteUrl(slot.file);
-      const el = document.createElement("div");
-      el.className = "slot";
-      el.innerHTML = `
-        <div class="badge">PDF</div>
-        <div class="meta">
-          <div class="title">${slot.label}</div>
-          <div class="name">${slot.file}</div>
-        </div>
-        <div class="status"><span class="dot warn"></span><span class="stxt">Comprobando...</span></div>
-        <div class="btns">
-          <a class="btn primary openBtn" href="${href}" target="_blank" rel="noopener">Abrir</a>
-          <button class="btn previewBtn" type="button">Previsualizar</button>
-          <button class="btn copyBtn" type="button">Copiar</button>
-        </div>
-      `;
-
-      // Estado
-      headExists(href).then(ok=>{
-        const st = el.querySelector(".status");
-        const dot = st.querySelector(".dot");
-        const txt = st.querySelector(".stxt");
-        if (ok) { dot.classList.replace("warn","ok"); txt.textContent = "Disponible"; }
-        else    { dot.classList.remove("ok");        txt.textContent = "Pendiente"; }
-      });
-
-      // Copiar
-      el.querySelector(".copyBtn").addEventListener("click", async ()=>{
-        try{ await navigator.clipboard.writeText(href); toast("Enlace copiado"); }
-        catch{ prompt("Copia manualmente:", href); }
-      });
-
-      // Previsualizar
-      el.querySelector(".previewBtn").addEventListener("click", ()=>{
-        openPreview(`${unitName} — ${slot.label}`, href);
-      });
-
-      return el;
-    }
-
-    function unitTemplate(unit){
-      const dir = unit.dir || safeDir(unit.label); // si en pdfs.json agregas "dir", se respeta
-      const el = document.createElement("article");
-      el.className = "unit";
-      el.innerHTML = `
-        <div class="unit-head">
-          <div class="unit-title">${unit.label}</div>
-          <div class="sub" title="Hasta ${SLOTS_PER_UNIT} archivos por unidad">4 archivos</div>
-        </div>
-        <div class="slot-list"></div>
-        <div style="margin-top:10px; display:flex; justify-content:flex-end; gap:8px;">
-          <a class="btn" href="${UPLOAD_BASE}/${dir}" target="_blank" rel="noopener">📤 Subir a ${dir}</a>
-        </div>
-      `;
-      const list = el.querySelector(".slot-list");
-      (unit.files || []).slice(0, SLOTS_PER_UNIT).forEach(s => list.appendChild(slotTemplate(unit.label, s)));
-      return el;
-    }
-
-    async function loadUnits(){
-      // 1) Intentar pdfs.json (estructura avanzada por unidad)
-      try{
-        const r = await fetch("pdfs.json", { cache:"no-store" });
-        if (r.ok){
-          const json = await r.json();
-          if (Array.isArray(json)) return json.map(u => ({
-            label: u.label || "Unidad",
-            dir:   u.dir   || null,
-            files: (u.files || []).slice(0, SLOTS_PER_UNIT).map((f, i)=>({
-              label: f.label || `Archivo ${i+1}`,
-              file:  f.file  || `UNIDAD-archivo-${i+1}.pdf`
-            }))
-          }));
-        }
-      }catch{}
-
-      // 2) Fallback: generar 4 unidades × 4 slots (UNIDAD{n}-{slot}.pdf)
-      return Array.from({length: FALLBACK_UNITS}, (_, u) => ({
-        label: `UNIDAD ${u+1}`,
-        files: Array.from({length: SLOTS_PER_UNIT}, (_, s)=> fallbackSlot(u, s))
-      }));
-    }
-
-    (async ()=>{
-      // Logos
-      if (SHOW_LEFT_LOGO)  { const L = document.getElementById("logoLeft");  L.style.display="block";  L.querySelector("img").src = LOGO_SRC; }
-      if (SHOW_RIGHT_LOGO) { const R = document.getElementById("logoRight"); R.style.display="block";  R.querySelector("img").src = LOGO_SRC; }
-
-      // Render unidades
-      const data = await loadUnits();
-      data.forEach(u => unitsEl.appendChild(unitTemplate(u)));
-    })();
-
-    /* ================================
-       PREVISUALIZACIÓN PDF
+       PREVIEW (PDF / VIDEO)
        ================================ */
     const dlg  = document.getElementById("preview");
     const pvT  = document.getElementById("pvTitle");
     const pvF  = document.getElementById("pvFrame");
+    const pvV  = document.getElementById("pvVideo");
     const pvO  = document.getElementById("pvOpen");
     const pvC  = document.getElementById("pvCopy");
-    document.getElementById("pvClose").addEventListener("click", ()=> dlg.close());
 
-    function openPreview(title, url){
+    document.getElementById("pvClose").addEventListener("click", ()=> {
+      pvF.src = 'about:blank';
+      pvV.pause(); pvV.removeAttribute('src'); pvV.removeAttribute('poster'); pvV.load();
+      dlg.close();
+    });
+
+    function openPreview(title, rawUrl, type, poster){
+      const url = withNoCache(rawUrl);
       pvT.textContent = title;
-      pvF.src = url;
       pvO.href = url;
       pvC.onclick = async ()=>{
         try{ await navigator.clipboard.writeText(url); toast("Enlace copiado"); }
         catch{ prompt("Copia manualmente:", url); }
       };
+
+      if (type === 'video') {
+        pvF.style.display = 'none';
+        pvV.style.display = 'block';
+        pvF.src = 'about:blank';
+        if (poster) pvV.setAttribute('poster', withNoCache(absoluteUrl(poster)));
+        else pvV.removeAttribute('poster');
+        pvV.src = url;
+        pvV.play().catch(()=>{});
+      } else {
+        pvV.style.display = 'none';
+        pvF.style.display = 'block';
+        pvV.pause(); pvV.removeAttribute('src'); pvV.removeAttribute('poster'); pvV.load();
+        pvF.src = url;
+      }
       dlg.showModal();
     }
   </script>
