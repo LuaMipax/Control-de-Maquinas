@@ -15,7 +15,7 @@
     "files": [
       { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-1.mp4", "type": "video" },
       { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-2.mp4", "type": "video" },
-      { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-3.pdf" },
+      { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-3.mov", "type": "video" },
       { "label": "PRACTICA", "file": "UNIDAD2/UNIDAD2-4.pdf" }
     ]
   },
