@@ -248,7 +248,7 @@
         </div>
       `;
       const list = el.querySelector(".slot-list");
-      (unit.files || []).slice(0, SLOTS_PER_UNIT).forEach(s => list.appendChild(slotTemplate(unit.label, s)));
+      (unit.files || []).forEach(s => list.appendChild(slotTemplate(unit.label, s)));
       return el;
     }
 
